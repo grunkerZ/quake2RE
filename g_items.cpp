@@ -1491,6 +1491,12 @@ void P_ToggleFlashlight(edict_t *ent, bool state)
 
 static void Use_Flashlight(edict_t *ent, gitem_t *inv)
 {
+	//MOD START
+	if (!(ent->flags & FL_FLASHLIGHT) && ent->client->pers.flashlight_charge <= 0) {
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("misc/keytry.wav"), 1, ATTN_NORM, 0);
+		return;
+	}
+	//MOD END
 	P_ToggleFlashlight(ent, !(ent->flags & FL_FLASHLIGHT));
 }
 
@@ -1543,9 +1549,77 @@ void Compass_Update(edict_t *ent, bool first)
 	ent->client->help_draw_time = level.time + 200_ms;
 }
 
+//MOD START
+
+edict_t* FindNearestDetectorTarget(edict_t* ent) {
+	edict_t* best = nullptr;
+	float best_dist = 999999.0f;
+	vec3_t player_org = ent->s.origin;
+
+	for (int i = 1; i < globals.num_edicts; i++) {
+		edict_t* check = &g_edicts[i];
+		if (!check->inuse) continue;
+		if (!check->classname) continue;
+
+		bool is_target = false;
+
+		if (check->item) {
+			if (check->item->id == IT_ITEM_ALMOND_WATER || check->item->id == IT_ITEM_BATTERY) {
+				if (!(check->svflags & SVF_NOCLIENT)) {
+					is_target = true;
+				}
+			}
+		}
+		else if (strcmp(check->classname, "misc_sanity_vendor") == 0) {
+			is_target = true;
+		}
+		else if (strcmp(check->classname, "trigger_darkspot") == 0) {
+			if (check->spawnflags.has(1_spawnflag))
+				is_target = true;
+		}
+
+		if (is_target) {
+			vec3_t center = (check->absmin + check->absmax) * 0.5f;
+			float dist = (center - player_org).length();
+
+			if (dist < best_dist) {
+				best_dist = dist;
+				best = check;
+			}
+		}
+	}
+
+	return best;
+}
+
+//MOD END
+
 static void Use_Compass(edict_t *ent, gitem_t *inv)
 {
-	if (!level.valid_poi)
+	//MOD START
+	edict_t* target = FindNearestDetectorTarget(ent);
+
+	if (!target) {
+		gi.LocClient_Print(ent, PRINT_HIGH, "Nothing can help you now.");
+		return;
+	}
+
+	gi.sound(ent, CHAN_AUTO, gi.soundindex("misc/talk1.wav"), 1, ATTN_NORM, 0);
+
+	vec3_t target_org = (target->absmin + target->absmax) * 0.5f;
+	ent->client->help_poi_location = target_org;
+
+	if (target->item && target->item->id == IT_ITEM_ALMOND_WATER)
+		ent->client->help_poi_image = gi.imageindex("p_adrenaline");
+	else if (target->item && target->item->id == IT_ITEM_BATTERY)
+		ent->client->help_poi_image = gi.imageindex("a_cells");
+	else
+		ent->client->help_poi_image = gi.imageindex("i_help");
+
+	level.valid_poi = true;
+
+	//MOD END
+	/*if (!level.valid_poi)
 	{
 		gi.LocClient_Print(ent, PRINT_HIGH, "$no_valid_poi");
 		return;
@@ -1555,7 +1629,7 @@ static void Use_Compass(edict_t *ent, gitem_t *inv)
 		level.current_dynamic_poi->use(level.current_dynamic_poi, ent, ent);
 	
 	ent->client->help_poi_location = level.current_poi;
-	ent->client->help_poi_image = level.current_poi_image;
+	ent->client->help_poi_image = level.current_poi_image;*/
 
 	vec3_t *&points = level.poi_points[ent->s.number - 1];
 
@@ -1564,7 +1638,7 @@ static void Use_Compass(edict_t *ent, gitem_t *inv)
 
 	PathRequest request;
 	request.start = ent->s.origin;
-	request.goal = level.current_poi;
+	request.goal = ent->client->help_poi_location; //level.current_poi;
 	request.moveDist = 64.f;
 	request.pathFlags = PathFlags::All;
 	request.nodeSearch.ignoreNodeFlags = true;
@@ -1622,6 +1696,26 @@ static void Use_Compass(edict_t *ent, gitem_t *inv)
 		gi.local_sound(ent, CHAN_AUTO, gi.soundindex("misc/help_marker.wav"), 1.f, ATTN_NORM, 0, GetUnicastKey());
 	}
 }
+
+//MOD START
+void Use_AlmondWater(edict_t* ent, gitem_t* item) {
+	ent->client->pers.sanity = g_sanity_max->integer;
+	gi.sound(ent, CHAN_ITEM, gi.soundindex("misc/w+pkup,wav"), 1, ATTN_NORM, 0);
+
+	ent->client->pers.inventory[item->id]--;
+	ValidateSelectedItem(ent);
+
+}
+
+bool Pickup_Battery(edict_t* ent, edict_t* other) {
+	if (other->client->pers.flashlight_charge >= 1000)
+		return false;
+	other->client->pers.flashlight_charge = 1000;
+
+	gi.sound(ent, CHAN_ITEM, gi.soundindex("misc/am_pkup.wav"), 1, ATTN_NORM, 0);
+	return true;
+}
+//MOD END
 
 //======================================================================
 
@@ -3846,6 +3940,60 @@ model="models/items/mega_h/tris.md2"
 		/* tag */ POWERUP_TECH4,
 		/* precaches */ "ctf/tech4.wav"
 	},
+
+	//MOD START
+
+	{
+		/* id */ IT_ITEM_ALMOND_WATER,
+		/* classname */ "item_almond_water",
+		/* pickup */ Pickup_Powerup,
+		/* use */ Use_AlmondWater,
+		/* drop */ Drop_General,
+		/* weaponthink */ nullptr,
+		/* pickup_sound */ "misc/w_pkup.wav",
+		/* world_model */ "models/items/adrenal/tris.md2",
+		/* world_model_flags */ EF_ROTATE | EF_BOB,
+		/* view_model */ nullptr,
+		/* icon */ "p_adrenaline",
+		/* use_name */ "Almond Water",
+		/* pickup_name */ "Almond Water",
+		/* pickup_name_definite */ "Almond Water",
+		/* quantity */ 1,
+		/* ammo */ IT_NULL,
+		/* chain */ IT_NULL,
+		/* flags */ IF_POWERUP | IF_POWERUP_WHEEL,
+		/* vwep_model */ nullptr,
+		/* armor_info */ nullptr,
+		/* tag */ 0,
+		/* precaches */ ""
+	},
+
+	{
+		/* id */ IT_ITEM_BATTERY,
+		/* classname */ "item_battery",
+		/* pickup */ Pickup_Battery,
+		/* use */ nullptr,
+		/* drop */ nullptr,
+		/* weaponthink */ nullptr,
+		/* pickup_sound */ "misc/am_pkup.wav",
+		/* world_model */ "models/items/ammo/cells/medium/tris.md2",
+		/* world_model_flags */ EF_ROTATE,
+		/* view_model */ nullptr,
+		/* icon */ "a_cells",
+		/* use_name */ "Battery",
+		/* pickup_name */ "Batter",
+		/* pickup_name_definite */ "Battery",
+		/* quantity */ 1,
+		/* ammo */ IT_NULL,
+		/* chain */ IT_NULL,
+		/* flags */ IF_NONE,
+		/* vwep_model */ nullptr,
+		/* armor_info */ nullptr,
+		/* tag */ 0,
+		/* precaches */ ""
+	},
+
+	//MOD END
 
 	{
 		/* id */ IT_ITEM_FLASHLIGHT,

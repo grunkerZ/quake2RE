@@ -45,6 +45,7 @@ void SP_monster_wireframe(edict_t* self);
 void SP_monster_snitch(edict_t* self);
 void SP_monster_fakehuman(edict_t* self);
 void SP_monster_mannequin(edict_t* self);
+void SP_misc_sanity_vendor(edict_t* self);
 //MOD END
 void SP_trigger_always(edict_t *ent);
 void SP_trigger_once(edict_t *ent);
@@ -281,6 +282,7 @@ static const std::initializer_list<spawn_t> spawns = {
 	{ "monster_snitch", SP_monster_snitch},
 	{ "monster_fakehuman", SP_monster_fakehuman},
 	{ "monster_mannequin", SP_monster_mannequin},
+	{ "misc_sanity_vendor", SP_misc_sanity_vendor},
 	//MOD END
 
 	{ "target_temp_entity", SP_target_temp_entity },

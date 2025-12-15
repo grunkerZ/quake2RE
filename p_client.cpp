@@ -818,6 +818,7 @@ void InitClientPersistant(edict_t *ent, gclient_t *client)
 
 	//MOD START
 	client->pers.sanity = g_sanity_max->integer;
+	client->pers.flashlight_charge = 1000;
 	//MOD END
 
 	// don't give us weapons if we shouldn't have any
@@ -879,7 +880,11 @@ void InitClientPersistant(edict_t *ent, gclient_t *client)
 				Player_GiveStartItems(ent, level.start_items);
 
 			if (!deathmatch->integer)
+			//MOD START
 				client->pers.inventory[IT_ITEM_COMPASS] = 1;
+			
+			client->pers.inventory[IT_ITEM_FLASHLIGHT] = 1;
+			//MOD END
 
 			// ZOID
 			bool give_grapple = (!strcmp(g_allow_grapple->string, "auto")) ?
@@ -3793,6 +3798,18 @@ void ClientBeginServerFrame(edict_t *ent)
 {
 	gclient_t *client;
 	int		   buttonMask;
+
+	//MOD START
+	if (ent->flags & FL_FLASHLIGHT) {
+		ent->client->pers.flashlight_charge -= 2;
+		if (ent->client->pers.flashlight_charge <= 0) {
+			ent->client->pers.flashlight_charge = 0;
+			P_ToggleFlashlight(ent, false);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("items/flashlight_off.wav"), 1, ATTN_NORM, 0);
+			gi.LocClient_Print(ent, PRINT_HIGH, "Flashlight dead.");
+		}
+	}
+	//MOD END
 
 	if (gi.ServerFrame() != ent->client->step_frame)
 		ent->s.renderfx &= ~RF_STAIR_STEP;

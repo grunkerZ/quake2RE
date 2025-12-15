@@ -955,6 +955,10 @@ enum item_id_t : int32_t {
 	IT_TECH_HASTE,
 	IT_TECH_REGENERATION,
 	
+	//MOD START
+	IT_ITEM_ALMOND_WATER,
+	IT_ITEM_BATTERY,
+	//MOD END
 	IT_ITEM_FLASHLIGHT,
 	IT_ITEM_COMPASS,
 
@@ -2771,6 +2775,7 @@ struct client_persistant_t
 
 	//MOD START
 	int sanity;
+	int32_t flashlight_charge;
 	//MOD END
 };
 

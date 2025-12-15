@@ -2535,3 +2535,60 @@ void SP_misc_model(edict_t *ent)
 	gi.setmodel(ent, ent->model);
 	gi.linkentity(ent);
 }
+
+//MOD START
+
+TOUCH(sanity_vendor_touch) (edict_t* self, edict_t* other, const trace_t& tr, bool other_touching_self)->void {
+	if (!other->client)
+		return;
+
+	if (level.time < self->touch_debounce_time)
+		return;
+
+	if (other->client->pers.sanity >= g_sanity_max->integer)
+		return;
+
+	gi.sound(self, CHAN_ITEM, gi.soundindex("world/mach2.wav"), 1, ATTN_NORM, 0);
+
+	other->client->pers.sanity += self->dmg;
+	if (other->client->pers.sanity > g_sanity_max->integer)
+		other->client->pers.sanity = g_sanity_max->integer;
+
+	gi.LocCenter_Print(other, "You feel refreshed.");
+
+	self->touch_debounce_time = level.time + gtime_t::from_sec(self->wait);
+
+	if (self->count = 0) {
+		self->count--;
+		if (self->count <= 0) {
+			self->touch = nullptr;
+			self->s.effects &= ~EF_COLOR_SHELL;
+			gi.sound(self, CHAN_VOICE, gi.soundindex("world/el_short.wav"), 1, ATTN_NORM, 0);
+		}
+	}
+}
+
+void SP_misc_sanity_vendor(edict_t* self) {
+	self->movetype = MOVETYPE_NONE;
+	self->solid = SOLID_BBOX;
+
+	if (!self->model)
+		self->model = "models/objects/barrels/tris.md2";
+	self->s.modelindex = gi.modelindex(self->model);
+
+	self->mins = { -16,-16,0 };
+	self->maxs = { 16,16,48 };
+
+	if (!self->count) self->count = 5;
+	if (!self->wait) self->wait = 2.0f;
+	if (!self->dmg) self->dmg = 30;
+
+	self->touch = sanity_vendor_touch;
+
+	gi.soundindex("world/mach2.wav");
+	gi.soundindex("world/el_short.wav");
+
+	gi.linkentity(self);
+
+}
+//MOD END

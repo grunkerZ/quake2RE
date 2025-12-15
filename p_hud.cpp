@@ -725,28 +725,57 @@ struct powerup_info_t
 
 //MOD START
 
-void DrawSanity(edict_t* ent) {
+void DrawBackroomsHUD(edict_t* ent) {
 	if (ent->health <= 0 || ent->deadflag) return;
 
-	int max = g_sanity_max->integer;
-	int cur = ent->client->pers.sanity;
-	if (max <= 0) max = 100;
+	std::string layout;
 
-	int bars = (cur * 10) / max;
-	if (bars < 0) bars = 0;
-	if (bars > 10) bars = 10;
+	int max_sanity = g_sanity_max->integer;
+	int sanity_cur = ent->client->pers.sanity;
+	if (max_sanity <= 0) max_sanity = 100;
+
+	int sanity_bars = (sanity_cur * 10) / max_sanity;
+	sanity_bars = clamp(sanity_bars, 0, 10);
 
 	char barStr[32];
 	for (int i = 0; i < 10; i++)
-		barStr[i] = (i < bars) ? '|' : ' ';
+		barStr[i] = (i < sanity_bars) ? '|' : ' ';
 	barStr[10] = 0;
 
-	ent->client->ps.stats[STAT_LAYOUTS] |= LAYOUTS_LAYOUT;
+	layout += G_Fmt("xv 0 yb -58 string \"Sanity: [{}] {}%\" ", barStr, (sanity_cur * 100) / max_sanity).data();
 
+	if (ent->client->pers.inventory[IT_ITEM_FLASHLIGHT]) {
+		int charge = ent->client->pers.flashlight_charge;
+		int batt_bars = (charge + 99) / 100;
+		if (charge > 0 && batt_bars == 0) batt_bars = 1;
+		if (batt_bars > 10) batt_bars = 10;
+
+		layout += "xr -50 yb -40 picn a_cells ";
+
+		int startY = -50;
+
+		layout += G_Fmt("xr -42 yb {} string \"_\" ", startY + 6).data();
+
+		for (int i = 0; i < 10; i++) {
+			int yPos = startY - (i * 6);
+			if (i < batt_bars) {
+				layout += G_Fmt("xr -42 yb {} string \"||\" ", yPos).data();
+			}
+			else {
+				layout += G_Fmt("xr -42 yb {} string \"=\" ", yPos).data();
+			}
+		}
+
+		layout += G_Fmt("xr -42 yb {} string \"-\" ",startY - (10*6)).data();
+	}
+
+	ent->client->ps.stats[STAT_LAYOUTS] |= LAYOUTS_LAYOUT;
 	gi.WriteByte(svc_layout);
-	gi.WriteString(G_Fmt("xv 0 yb -58 string \"Sanity: [{}] {}%\" ", barStr, (cur * 100) / max).data());
+	gi.WriteString(layout.c_str());
 	gi.unicast(ent, true);
 }
+
+
 
 //MOD END
 
@@ -1115,7 +1144,7 @@ void G_SetStats(edict_t *ent)
 	// ZOID
 
 	//MOD START
-	DrawSanity(ent);
+	DrawBackroomsHUD(ent);
 	//MOD END
 }
 

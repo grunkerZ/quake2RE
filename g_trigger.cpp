@@ -1333,6 +1333,7 @@ void SP_trigger_coop_relay(edict_t *self)
 }
 
 //MOD START
+constexpr spawnflags_t SPAWNFLAG_DARKSPOT_RESTORE = 1_spawnflag;
 
 TOUCH(darkspot_touch) (edict_t* self, edict_t* other, const trace_t& tr, bool other_touching_self) -> void {
 	if (!other->client)
@@ -1345,11 +1346,21 @@ TOUCH(darkspot_touch) (edict_t* self, edict_t* other, const trace_t& tr, bool ot
 
 	self->timestamp = level.time + gtime_t::from_sec(self->wait);
 
-	if (other->client->pers.sanity > 0) {
-		other->client->pers.sanity -= self->dmg;
-		if (other->client->pers.sanity < 0)
-			other->client->pers.sanity = 0;
+	if (self->spawnflags.has(SPAWNFLAG_DARKSPOT_RESTORE)) {
+		if (other->client->pers.sanity < g_sanity_max->integer) {
+			other->client->pers.sanity += self->dmg;
+			if (other->client->pers.sanity > g_sanity_max->integer)
+				other->client->pers.sanity = g_sanity_max->integer;
+		}
 	}
+	else {
+		if (other->client->pers.sanity > 0) {
+			other->client->pers.sanity -= self->dmg;
+			if (other->client->pers.sanity < 0)
+				other->client->pers.sanity = 0;
+		}
+	}
+	
 }
 
 void SP_trigger_darkspot(edict_t* self) {
