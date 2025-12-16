@@ -1715,6 +1715,139 @@ bool Pickup_Battery(edict_t* ent, edict_t* other) {
 	gi.sound(ent, CHAN_ITEM, gi.soundindex("misc/am_pkup.wav"), 1, ATTN_NORM, 0);
 	return true;
 }
+
+static void Use_EMF(edict_t* ent, gitem_t* inv) {
+	ent->client->emf_active = !ent->client->emf_active;
+
+	if (ent->client->emf_active) {
+		gi.LocClient_Print(ent, PRINT_HIGH, "EMF Reader ON");
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("misc/keytry.wav"), 1, ATTN_NORM, 0);
+	}
+	else {
+		gi.LocClient_Print(ent, PRINT_HIGH, "EMF Reader OFF");
+		gi.sound(ent, CHAN_AUTO, gi.soundindex("misc/keytry.wav"), 1, ATTN_NORM, 0);
+
+		ent->client->emf_detecting = false;
+		ent->client->emf_sound_played = false;
+	}
+}
+
+DIE(AlarmClock_Die) (edict_t* self, edict_t* inflictor, edict_t* attacker, int damage, const vec3_t& point, const mod_t& mod)->void {
+	self->s.modelindex = 0;
+	self->solid = SOLID_NOT;
+	self->takedamage = false;
+
+	gi.sound(self, CHAN_BODY, gi.soundindex("weapons/grenlf1a.wav"), 1, ATTN_NORM, 0);
+
+	if (attacker && attacker->inuse && attacker->enemy == self) {
+		attacker->enemy = nullptr;
+		
+		if (attacker->svflags & SVF_MONSTER) {
+			attacker->monsterinfo.aiflags &= ~AI_SOUND_TARGET;
+
+			if (attacker->monsterinfo.stand)
+				attacker->monsterinfo.stand(attacker);
+		}
+	}
+
+	self->think = G_FreeEdict;
+	self->nextthink = level.time + 0.1_sec;
+}
+
+THINK(AlarmClock_Ring) (edict_t* ent)->void {
+	if (level.time > ent->timestamp) {
+		G_FreeEdict(ent);
+		return;
+	}
+
+	if (ent->owner && ent->owner->inuse && ent->owner->client) {
+		PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT);
+	}
+
+
+
+	for(int i=1;i<globals.num_edicts;i++){
+
+		edict_t* target = &g_edicts[i];
+
+		if (!target->inuse) continue;
+		if (!(target->svflags & SVF_MONSTER)) continue;
+		if (target->health <= 0) continue;
+		if (!target->classname) continue;
+
+		vec3_t v = target->s.origin - ent->s.origin;
+		if (v.length() > 1250.0f)
+			continue;
+
+		bool is_wireframe = !strcmp(target->classname, "monster_wireframe");
+
+		if (is_wireframe) {
+			if (target->enemy != ent) {
+				target->enemy = ent;
+				target->goalentity = ent;
+				target->movetarget = ent;
+
+				target->monsterinfo.aiflags &= ~(AI_SOUND_TARGET | AI_STAND_GROUND | AI_TEMP_STAND_GROUND);
+
+				FoundTarget(target);
+			}
+		}
+	}
+
+	gi.sound(ent, CHAN_VOICE, gi.soundindex("world/klaxon2.wav"), 1, ATTN_NORM, 0);
+	ent->nextthink = level.time + 1.0_sec;
+
+}
+
+THINK(AlarmClock_StartRing) (edict_t* ent)->void {
+	ent->think = AlarmClock_Ring;
+	ent->nextthink = level.time + 0.1_sec;
+	ent->timestamp = level.time + 10.0_sec;
+
+	ent->takedamage = true;
+	ent->health = 20;
+	ent->die = AlarmClock_Die;
+
+	gi.sound(ent, CHAN_VOICE, gi.soundindex("world/klaxon2.wav"), 1, ATTN_NORM, 0);
+}
+
+void Use_AlarmClock(edict_t* ent, gitem_t* item) {
+	ent->client->pers.inventory[item->id]--;
+	ValidateSelectedItem(ent);
+
+	edict_t* clock = G_Spawn();
+	clock->classname = "alarm_clock";
+
+	gi.setmodel(clock, "models/objects/grenade2/tris.md2");
+
+	vec3_t forward, right;
+	AngleVectors(ent->client->v_angle, forward, right, nullptr);
+	vec3_t start = G_ProjectSource(ent->s.origin, vec3_t{ 16,0,0 }, forward, right);
+
+	clock->s.origin = start;
+	clock->s.angles = ent->client->v_angle;
+
+	clock->movetype = MOVETYPE_BOUNCE;
+	clock->solid = SOLID_BBOX;
+	clock->clipmask = MASK_SHOT;
+
+	clock->s.effects = EF_NONE;
+
+	clock->mins = vec3_t{ -4,-4,-4 };
+	clock->maxs = vec3_t{ 4,4,4 };
+
+	clock->velocity = forward * 600 + vec3_t{ 0,0,200 };
+	clock->avelocity = vec3_t{ 300,300,300 };
+
+	clock->think = AlarmClock_StartRing;
+	clock->nextthink = level.time + 3.0_sec;
+
+	clock->owner = ent;
+
+	gi.linkentity(clock);
+
+	gi.sound(ent, CHAN_AUTO, gi.soundindex("weapons/grenlf1a.wav"), 1, ATTN_NORM, 0);
+}
 //MOD END
 
 //======================================================================
@@ -2823,7 +2956,7 @@ model="models/items/ammo/rockets/medium/tris.md2"
 		/* quantity */ 60,
 		/* ammo */ IT_NULL,
 		/* chain */ IT_NULL,
-		/* flags */ IF_POWERUP | IF_POWERUP_WHEEL,
+		/* flags */ IF_POWERUP,
 		/* vwep_model */ nullptr,
 		/* armor_info */ nullptr,
 		/* tag */ POWERUP_QUAD,
@@ -3934,7 +4067,7 @@ model="models/items/mega_h/tris.md2"
 		/* quantity */ 0,
 		/* ammo */ IT_NULL,
 		/* chain */ IT_NULL,
-		/* flags */ IF_TECH | IF_POWERUP_WHEEL,
+		/* flags */ IF_TECH,
 		/* vwep_model */ nullptr,
 		/* armor_info */ nullptr,
 		/* tag */ POWERUP_TECH4,
@@ -3964,7 +4097,7 @@ model="models/items/mega_h/tris.md2"
 		/* flags */ IF_POWERUP | IF_POWERUP_WHEEL,
 		/* vwep_model */ nullptr,
 		/* armor_info */ nullptr,
-		/* tag */ 0,
+		/* tag */ 9,
 		/* precaches */ ""
 	},
 
@@ -3981,7 +4114,7 @@ model="models/items/mega_h/tris.md2"
 		/* view_model */ nullptr,
 		/* icon */ "a_cells",
 		/* use_name */ "Battery",
-		/* pickup_name */ "Batter",
+		/* pickup_name */ "Battery",
 		/* pickup_name_definite */ "Battery",
 		/* quantity */ 1,
 		/* ammo */ IT_NULL,
@@ -3989,8 +4122,58 @@ model="models/items/mega_h/tris.md2"
 		/* flags */ IF_NONE,
 		/* vwep_model */ nullptr,
 		/* armor_info */ nullptr,
-		/* tag */ 0,
+		/* tag */ 5,
 		/* precaches */ ""
+	},
+
+	{
+		/* id */ IT_ITEM_EMF,
+		/* classname */ "item_emf",
+		/* pickup */ Pickup_General,
+		/* use */ Use_EMF,
+		/* drop */ Drop_General,
+		/* weaponthink */ nullptr,
+		/* pickup_sound */ "misc/w_pkup.wav",
+		/* world_model */ "models/items/keys/spinner/tris.md2",
+		/* world_model_flags */ EF_ROTATE,
+		/* view_model */ nullptr,
+		/* icon */ "k_dataspin",
+		/* use_name */ "EMF Reader",
+		/* pickup_name */ "EMF Reader",
+		/* pickup_name_definite */ "The EMF Reader",
+		/* quantity */ 1,
+		/* ammo */ IT_NULL,
+		/* chain */ IT_NULL,
+		/* flags */ IF_POWERUP_WHEEL | IF_POWERUP_ONOFF,
+		/* vwep_model */ nullptr,
+		/* armor_info */ nullptr,
+		/* tag */ 2,
+		/* precaches */ ""
+	},
+
+	{
+		/* id */ IT_ITEM_ALARM_CLOCK,
+		/* classname */ "item_alarm_clock",
+		/* pickup */ Pickup_Powerup,
+		/* use */ Use_AlarmClock,
+		/* drop */ Drop_General,
+		/* weaponthink */ nullptr,
+		/* pickup_sound */ "misc/w_pkup.wav",
+		/* world_model */ "models/objects/grenade2/tris.md2",
+		/* world_model_flags */ EF_ROTATE,
+		/* view_model */ nullptr,
+		/* icon */ "a_grenades",
+		/* use_name */ "Alarm Clock",
+		/* pickup_name */ "Alarm Clock",
+		/* pickup_name_definite */ "An Alarm Clock",
+		/* quantity */ 1,
+		/* ammo */ IT_NULL,
+		/* chain */ IT_NULL,
+		/* flags */ IF_POWERUP_WHEEL | IF_POWERUP_ONOFF,
+		/* vwep_model */ nullptr,
+		/* armor_info */ nullptr,
+		/* tag */ 0,
+		/* precaches */ "world/klaxon2.wav models/objects/grenade2/tris.md2"
 	},
 
 	//MOD END
@@ -4024,13 +4207,13 @@ model="models/items/mega_h/tris.md2"
 	{
 		/* id */ IT_ITEM_COMPASS,
 		/* classname */ "item_compass", 
-		/* pickup */ nullptr,
+		/* pickup */ Pickup_Powerup,
 		/* use */ Use_Compass,
-		/* drop */ nullptr,
+		/* drop */ Drop_General,
 		/* weaponthink */ nullptr,
 		/* pickup_sound */ nullptr,
-		/* world_model */ nullptr,
-		/* world_model_flags */ EF_NONE,
+		/* world_model */ "models/items/keys/target/tris.md2",
+		/* world_model_flags */ EF_ROTATE,
 		/* view_model */ nullptr,
 		/* icon */ "p_compass",
 		/* use_name */  "Compass",
@@ -4039,7 +4222,7 @@ model="models/items/mega_h/tris.md2"
 		/* quantity */ 0,
 		/* ammo */ IT_NULL,
 		/* chain */ IT_NULL,
-		/* flags */ IF_STAY_COOP | IF_POWERUP_WHEEL | IF_POWERUP_ONOFF,
+		/* flags */ IF_POWERUP | IF_POWERUP_WHEEL | IF_POWERUP_ONOFF,
 		/* vwep_model */ nullptr,
 		/* armor_info */ nullptr,
 		/* tag */ POWERUP_COMPASS,
@@ -4097,7 +4280,7 @@ void InitItems()
 	{
 		if ((it.flags & IF_AMMO) && it.tag >= AMMO_BULLETS && it.tag < AMMO_MAX)
 			ammolist[it.tag] = &it;
-		else if ((it.flags & IF_POWERUP_WHEEL) && !(it.flags & IF_WEAPON) && it.tag >= POWERUP_SCREEN && it.tag < POWERUP_MAX)
+		else if ((it.flags & (IF_POWERUP | IF_POWERUP_WHEEL)) && !(it.flags & IF_WEAPON) && it.tag >= POWERUP_SCREEN && it.tag < POWERUP_MAX)
 			poweruplist[it.tag] = &it;
 	}
 

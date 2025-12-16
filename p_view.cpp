@@ -451,17 +451,44 @@ void SV_CalcViewOffset(edict_t *ent)
 	if (!ent->client->pers.bob_skip && !SkipViewModifiers())
 		v += P_CurrentKickOrigin(ent);
 
+	//MOD START
+
+	if (abs(ent->client->lean_angle)>0.001f) {
+		float max_lean_angle = 20.0f;
+		float max_lean_dist = 25.0f;
+
+		angles[ROLL] += ent->client->lean_angle * max_lean_angle;
+		vec3_t forward, right, up;
+		AngleVectors(ent->client->v_angle, forward, right, up);
+
+		vec3_t lean_offset = right * (ent->client->lean_angle * max_lean_dist);
+
+		vec3_t start = ent->s.origin;
+		start[2] += ent->viewheight;
+		vec3_t end = start + lean_offset;
+
+		trace_t tr = gi.trace(start, vec3_origin, vec3_origin, end, ent, MASK_SOLID);
+
+		if (tr.fraction < 1.0f) {
+			lean_offset = lean_offset * (tr.fraction * 0.9f);
+		}
+		v = v + lean_offset;
+	}
+
+	//MOD END
+
+
 	// absolutely bound offsets
 	// so the view can never be outside the player box
 
-	if (v[0] < -14)
-		v[0] = -14;
-	else if (v[0] > 14)
-		v[0] = 14;
-	if (v[1] < -14)
-		v[1] = -14;
-	else if (v[1] > 14)
-		v[1] = 14;
+	if (v[0] < -32)
+		v[0] = -32;
+	else if (v[0] > 32)
+		v[0] = 32;
+	if (v[1] < -32)
+		v[1] = -32;
+	else if (v[1] > 32)
+		v[1] = 32;
 	if (v[2] < -22)
 		v[2] = -22;
 	else if (v[2] > 30)

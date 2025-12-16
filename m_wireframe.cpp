@@ -9,7 +9,7 @@
 #define WIREFRAME_DRAIN_RATE			0.1f
 #define WIREFRAME_DRAIN_AMOUNT			2
 
-#define MOVEMENT_NOISE_THRESHOLD		400.0f
+#define MOVEMENT_NOISE_THRESHOLD		300.0f
 
 extern void FoundTarget(edict_t* self);
 

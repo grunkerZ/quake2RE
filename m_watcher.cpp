@@ -22,6 +22,9 @@ THINK(watcher_dormant) (edict_t* self)->void {
 		if (!ent->inuse || !ent->client || ent->health <= 0)
 			continue;
 
+		if (ent->flags & FL_NOTARGET)
+			continue;
+
 		float dist = (ent->s.origin - self->s.origin).length();
 		float sanity_pct = (float)ent->client->pers.sanity / (float)g_sanity_max->integer;
 

@@ -1621,6 +1621,11 @@ void Cmd_Sanity_f(edict_t* ent) {
 	gi.LocClient_Print(ent, PRINT_HIGH, "Sanity set to %d\n", ent->client->pers.sanity);
 }
 
+void Cmd_Lean_f(edict_t* ent) {
+	if (gi.argc() < 2) return;
+	ent->client->lean_held = (atoi(gi.argv(1)) != 0);
+}
+
 //MOD END
 
 /*
@@ -1637,11 +1642,18 @@ void ClientCommand(edict_t *ent)
 
 	cmd = gi.argv(0);
 
+	//MOD START
 	if (Q_strcasecmp(cmd, "sanity") == 0) {
 		Cmd_Sanity_f(ent);
 		return;
 	}
+	
+	if (Q_strcasecmp(cmd, "lean") == 0){
+		Cmd_Lean_f(ent);
+		return;
+	}
 
+	//MOD END
 	if (Q_strcasecmp(cmd, "players") == 0)
 	{
 		Cmd_Players_f(ent);

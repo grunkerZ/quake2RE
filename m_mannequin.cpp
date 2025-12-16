@@ -59,6 +59,10 @@ THINK(mannequin_think) (edict_t* self)->void {
 		}
 	}
 
+	if (self->enemy && (self->enemy->flags & FL_NOTARGET)) {
+		self->enemy = NULL;
+	}
+
 	if (!self->groundentity) {
 		M_CheckGround(self, MASK_MONSTERSOLID);
 	}

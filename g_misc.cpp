@@ -2591,4 +2591,18 @@ void SP_misc_sanity_vendor(edict_t* self) {
 	gi.linkentity(self);
 
 }
+
+void SP_misc_hideable(edict_t* ent) {
+	if (!ent->model)
+		ent->model = "models/objects/lockers/tris.md2";
+
+	gi.setmodel(ent, ent->model);
+
+	ent->solid = SOLID_BBOX;
+	ent->movetype = MOVETYPE_NONE;
+	ent->clipmask = MASK_SOLID;
+
+	gi.linkentity(ent);
+}
+
 //MOD END

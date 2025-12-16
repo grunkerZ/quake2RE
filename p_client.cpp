@@ -819,6 +819,7 @@ void InitClientPersistant(edict_t *ent, gclient_t *client)
 	//MOD START
 	client->pers.sanity = g_sanity_max->integer;
 	client->pers.flashlight_charge = 1000;
+	client->pers.stamina - 100.0f;
 	//MOD END
 
 	// don't give us weapons if we shouldn't have any
@@ -882,8 +883,9 @@ void InitClientPersistant(edict_t *ent, gclient_t *client)
 			if (!deathmatch->integer)
 			//MOD START
 				client->pers.inventory[IT_ITEM_COMPASS] = 1;
-			
 			client->pers.inventory[IT_ITEM_FLASHLIGHT] = 1;
+			
+			
 			//MOD END
 
 			// ZOID
@@ -2235,6 +2237,20 @@ void PutClientInServer(edict_t *ent)
 	};
 	P_ForceFogTransition(ent, true);
 
+	//MOD START
+	if (ent->client->pers.stamina <= 0.0f) {
+		ent->client->pers.stamina = 100.0f;
+	}
+
+	ent->client->is_hiding = false;
+	ent->client->hiding_spot = NULL;
+
+	ent->client->lean_angle = 0.0f;
+	ent->client->is_leaning = false;
+	ent->client->lean_held = false;
+
+	//MOD END
+
 	// ZOID
 	if (CTFStartClient(ent))
 		return;
@@ -3185,10 +3201,136 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 	gclient_t *client;
 	edict_t	  *other;
 	uint32_t   i;
+	client = ent->client;
+	//MOD START
+
+	static bool attack_released = true;
+	if (!(ucmd->buttons & BUTTON_ATTACK)) attack_released = true;
+
+	if ((ucmd->buttons & BUTTON_ATTACK) && attack_released) {
+		attack_released = false;
+		if (client->is_hiding) {
+			client->is_hiding = false;
+			ent->movetype = MOVETYPE_WALK;
+			ent->solid = SOLID_BBOX;
+			ent->flags &= ~FL_NOTARGET;
+			ent->svflags &= ~SVF_NOCLIENT;
+
+			vec3_t forward;
+			AngleVectors(client->hiding_spot->s.angles, forward, NULL, NULL);
+			ent->s.origin = client->hiding_spot->s.origin + (forward * 32.0f);
+
+			gi.linkentity(ent);
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("doors/dr1_end.wav"), 1, ATTN_NORM, 0);
+		}
+		else {
+			edict_t* spot = NULL;
+			edict_t* best_spot = NULL;
+			float best_dist = 80.0f;
+			while ((spot = G_Find(spot, [](edict_t* e) { return e->classname && !strcmp(e->classname, "misc_hideable"); }))) {
+				float d = (spot->s.origin - ent->s.origin).length();
+				if (d < best_dist) {
+					best_dist = d;
+					best_spot = spot;
+				}
+			}
+
+			if (best_spot) {
+				client->is_hiding = true;
+				client->hiding_spot = best_spot;
+
+				ent->velocity = vec3_t{ 0,0,0 };
+				ent->movetype = MOVETYPE_NONE;
+				ent->solid = SOLID_NOT;
+
+				ent->s.origin = best_spot->s.origin;
+
+				ent->flags |= FL_NOTARGET;
+
+				gi.linkentity(ent);
+			}
+		}
+	}
+
+	if (client->is_hiding) {
+		ucmd->forwardmove = 0;
+		ucmd->sidemove = 0;
+
+		client->ps.screen_blend = { 0,0,0,0.8f };
+	}
+
+	float target_lean = 0.0f;
+	float lean_speed = 5.0f * FRAME_TIME_S.seconds();
+
+	if (client->lean_held) {
+		if (ucmd->sidemove < 0)
+			target_lean = -1.0f;
+		else if (ucmd->sidemove > 0)
+			target_lean = 1.0f;
+
+		if (target_lean != 0.0f) {
+			ucmd->forwardmove = 0;
+			ucmd->sidemove = 0;
+		}
+	}
+
+	if (client->lean_angle < target_lean) {
+		client->lean_angle += lean_speed;
+		if (client->lean_angle > target_lean)
+			ent->client->lean_angle = target_lean;
+	}
+	else if (client->lean_angle > target_lean) {
+		client->lean_angle -= lean_speed;
+		if (client->lean_angle < target_lean)
+			client->lean_angle = target_lean;
+	}
+
+	client->is_leaning = (abs(client->lean_angle) > 0.01f);
+
+	const float STAMINA_MAX = 100.0f;
+	const float STAMINA_DRAIN_RATE = 20.0f * FRAME_TIME_S.seconds();
+	const float STAMINA_REGEN_RATE = 10.0f * FRAME_TIME_S.seconds();
+
+	const float RUN_SPEED = 400.0f;
+	const float RUN_THRESHOLD = 300.0f;
+	const float WALK_SPEED = 200.0f;
+
+	float fwd = ucmd->forwardmove;
+	float side = ucmd->sidemove;
+	float current_speed = sqrt((fwd * fwd) + (side * side));
+
+	bool is_moving = (current_speed > 0.0f);
+	bool is_crouching = (ucmd->buttons & BUTTON_CROUCH);
+
+	bool holding_sprint_key = (is_moving && current_speed < RUN_THRESHOLD);
+
+	if (holding_sprint_key && !is_crouching && client->pers.stamina > 0.0f) {
+		float scale = RUN_SPEED / current_speed;
+		ucmd->forwardmove = (short)(fwd*scale);
+		ucmd->sidemove = (short)(side*scale);
+
+		client->pers.stamina -= STAMINA_DRAIN_RATE;
+		if (client->pers.stamina < 0.0f)
+			client->pers.stamina = 0.0f;
+	}
+	else {
+		if (current_speed > WALK_SPEED) {
+			float scale = WALK_SPEED / current_speed;
+			ucmd->forwardmove = (short)(fwd*scale);
+			ucmd->sidemove = (short)(side*scale);
+		}
+
+		if (client->pers.stamina < STAMINA_MAX) {
+			client->pers.stamina += STAMINA_REGEN_RATE;
+			if (client->pers.stamina > STAMINA_MAX)
+				client->pers.stamina = STAMINA_MAX;
+		}
+	}
+	//MOD END
 	pmove_t	   pm;
 
 	level.current_entity = ent;
-	client = ent->client;
+	
 
 	// [Paril-KEX] pass buttons through even if we are in intermission or
 	// chasing.
@@ -3383,6 +3525,8 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 			AngleVectors(client->v_angle, client->v_forward, nullptr, nullptr);
 		}
 
+		
+
 		// ZOID
 		if (client->ctf_grapple)
 			CTFGrapplePull(client->ctf_grapple);
@@ -3470,6 +3614,7 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 		if (other->inuse && other->client->chase_target == ent)
 			UpdateChaseCam(other);
 	}
+
 }
 
 // active monsters
@@ -3786,6 +3931,51 @@ static bool G_CoopRespawn(edict_t *ent)
 	return true;
 }
 
+//MOD START
+
+void P_CheckEMF(edict_t* ent) {
+	if (!ent->client->emf_active || !ent->client->pers.inventory[IT_ITEM_EMF]) {
+		ent->client->emf_detecting = false;
+		ent->client->emf_sound_played = false;
+		return;
+	}
+
+	bool found_monster = false;
+	float detect_radius = 512.0f;
+
+	for (auto monster : active_monsters()) {
+		if (!monster->classname) continue;
+
+		bool is_target = false;
+		if (strcmp(monster->classname, "monster_wireframe") == 0) is_target = true;
+		else if (strcmp(monster->classname, "monster_snitch") == 0) is_target = true;
+		else if (strcmp(monster->classname, "monster_mannequin") == 0) is_target = true;
+
+		if (is_target) {
+			float dist = (monster->s.origin - ent->s.origin).length();
+			if (dist < detect_radius) {
+				found_monster = true;
+				break;
+			}
+		}
+	}
+
+	ent->client->emf_detecting = found_monster;
+
+	if (found_monster) {
+		if (!ent->client->emf_sound_played) {
+			gi.sound(ent, CHAN_AUTO, gi.soundindex("misc/talk1.wav"), 1, ATTN_NORM, 0);
+			ent->client->emf_sound_played = true;
+		}
+	}
+	else {
+		ent->client->emf_sound_played = false;
+	}
+}
+
+
+//MOD END
+
 /*
 ==============
 ClientBeginServerFrame
@@ -3800,6 +3990,8 @@ void ClientBeginServerFrame(edict_t *ent)
 	int		   buttonMask;
 
 	//MOD START
+	P_CheckEMF(ent);
+
 	if (ent->flags & FL_FLASHLIGHT) {
 		ent->client->pers.flashlight_charge -= 2;
 		if (ent->client->pers.flashlight_charge <= 0) {

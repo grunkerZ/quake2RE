@@ -737,12 +737,41 @@ void DrawBackroomsHUD(edict_t* ent) {
 	int sanity_bars = (sanity_cur * 10) / max_sanity;
 	sanity_bars = clamp(sanity_bars, 0, 10);
 
-	char barStr[32];
-	for (int i = 0; i < 10; i++)
-		barStr[i] = (i < sanity_bars) ? '|' : ' ';
-	barStr[10] = 0;
+	char barStr[64];
+	int idx = 0;
+	for (int i = 0; i < 10; i++) {
+		if (i < sanity_bars) {
+			barStr[idx++] = '|';
+			barStr[idx++] = ' ';
+		}
+		else {
+			barStr[idx++] = '-';
+			barStr[idx++] = ' ';
+		}
+	}
+	barStr[idx] = 0;
 
 	layout += G_Fmt("xv 0 yb -58 string \"Sanity: [{}] {}%\" ", barStr, (sanity_cur * 100) / max_sanity).data();
+
+	int stamina_cur = (int)ent->client->pers.stamina;
+	int stamina_bars = (stamina_cur * 10) / 100;
+	stamina_bars = clamp(stamina_bars, 0, 10);
+
+	char stamBarStr[64];
+	idx = 0;
+	for (int i = 0; i < 10; i++) {
+		if (i < stamina_bars) {
+			stamBarStr[idx++] = '|';
+			stamBarStr[idx++] = ' ';
+		}
+		else {
+			stamBarStr[idx++] = '-';
+			stamBarStr[idx++] = ' ';
+		}
+	}
+	stamBarStr[idx] = 0;
+
+	layout += G_Fmt("xl 10 yb -32 string \"Stamina:[{}]\" ", stamBarStr).data();
 
 	if (ent->client->pers.inventory[IT_ITEM_FLASHLIGHT]) {
 		int charge = ent->client->pers.flashlight_charge;
@@ -768,6 +797,18 @@ void DrawBackroomsHUD(edict_t* ent) {
 
 		layout += G_Fmt("xr -42 yb {} string \"-\" ",startY - (10*6)).data();
 	}
+	
+	if (ent->client->emf_active) {
+		layout += "xv 10 yb -100 picn k_dataspin ";
+		if (ent->client->emf_detecting) {
+			layout += "xv 132 yv 40 string \"WARNING\" ";
+		}
+	}
+
+	if (ent->client->is_hiding) {
+		layout += "xl 10 yb -100 string \"[ HIDDEN ]\" ";
+	}
+	
 
 	ent->client->ps.stats[STAT_LAYOUTS] |= LAYOUTS_LAYOUT;
 	gi.WriteByte(svc_layout);
@@ -888,6 +929,8 @@ void G_SetStats(edict_t *ent)
 	{
 		gitem_t *powerup = GetItemByPowerup((powerup_t) powerupIndex);
 		uint16_t val;
+	
+		if (!powerup) continue;
 
 		switch (powerup->id)
 		{
@@ -913,7 +956,8 @@ void G_SetStats(edict_t *ent)
 			break;
 		}
 
-		G_SetPowerupStat((uint16_t *) &ent->client->ps.stats[STAT_POWERUP_INFO_START], powerup->powerup_wheel_index, val);
+		if(powerup->powerup_wheel_index>-1)
+			G_SetPowerupStat((uint16_t *) &ent->client->ps.stats[STAT_POWERUP_INFO_START], powerup->powerup_wheel_index, val);
 	}
 
 	ent->client->ps.stats[STAT_TIMER_ICON] = 0;

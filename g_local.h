@@ -958,6 +958,8 @@ enum item_id_t : int32_t {
 	//MOD START
 	IT_ITEM_ALMOND_WATER,
 	IT_ITEM_BATTERY,
+	IT_ITEM_EMF,
+	IT_ITEM_ALARM_CLOCK,
 	//MOD END
 	IT_ITEM_FLASHLIGHT,
 	IT_ITEM_COMPASS,
@@ -2776,6 +2778,7 @@ struct client_persistant_t
 	//MOD START
 	int sanity;
 	int32_t flashlight_charge;
+	float stamina;
 	//MOD END
 };
 
@@ -3019,6 +3022,14 @@ struct gclient_t
 	//MOD START
 	gtime_t next_sanity_drain;
 	gtime_t next_sanity_scream;
+	bool emf_active;
+	bool emf_detecting;
+	bool emf_sound_played;
+	bool is_hiding;
+	edict_t* hiding_spot;
+	float lean_angle;
+	bool is_leaning;
+	bool lean_held;
 	//MOD END
 };
 
