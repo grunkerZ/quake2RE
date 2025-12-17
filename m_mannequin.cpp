@@ -26,6 +26,9 @@ static bool Mannequin_IsBeingWatched(edict_t* self) {
 
 	if (!player) return false;
 
+	if (player->client->is_closing_eyes)
+		return false;
+
 	vec3_t player_eyes = player->s.origin + player->client->ps.viewoffset;
 	vec3_t v_to_mon = self->s.origin - player_eyes;
 	float dist = v_to_mon.length();

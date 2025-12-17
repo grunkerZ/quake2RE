@@ -706,6 +706,27 @@ void SV_CalcBlend(edict_t *ent)
 	ent->client->bonus_alpha -= gi.frame_time_s;
 	if (ent->client->bonus_alpha < 0)
 		ent->client->bonus_alpha = 0;
+
+	//MOD START
+
+	float sanity_pct = (float)ent->client->pers.sanity / (float)g_sanity_max->integer;
+
+	if (sanity_pct < 0.30f) {
+		float intensity = (1.0f - (sanity_pct / 0.30f)) * 0.85f;
+
+		ent->client->ps.screen_blend[0] = 0.0f;
+		ent->client->ps.screen_blend[1] = 0.0f;
+		ent->client->ps.screen_blend[2] = 0.0f;
+		ent->client->ps.screen_blend[3] = intensity;
+	}
+
+	if (ent->client->is_closing_eyes) {
+		ent->client->ps.screen_blend[0] = 0.0f;
+		ent->client->ps.screen_blend[1] = 0.0f;
+		ent->client->ps.screen_blend[2] = 0.0f;
+		ent->client->ps.screen_blend[3] = 1.0f;
+	}
+	//MOD END
 }
 
 /*
@@ -1488,6 +1509,27 @@ void ClientEndServerFrame(edict_t *ent)
 
 	// determine the gun offsets
 	SV_CalcGunOffset(ent);
+
+	//MOD START
+	if (ent->client->base_fov <= 1.0f) {
+		ent->client->base_fov = ent->client->ps.fov;
+		if (ent->client->base_fov <= 1.0f)
+			ent->client->base_fov = 90;
+	}
+
+	float target_fov = ent->client->base_fov;
+	int max_sanity = g_sanity_max->integer;
+	float sanity_pct = (float)ent->client->pers.sanity / (float)max_sanity;
+
+	if (sanity_pct < 0.30f) {
+		float intensity = 1.0f - (sanity_pct / 0.30f);
+
+		float zoom_amount = 15.0f * intensity;
+		target_fov -= zoom_amount;
+	}
+
+	ent->client->ps.fov = target_fov;
+	//MOD END
 
 	// determine the full screen color blend
 	// must be after viewoffset, so eye contents can be

@@ -2648,6 +2648,10 @@ void ClientUserinfoChanged(edict_t *ent, const char *userinfo)
 	gi.Info_ValueForKey(userinfo, "fov", val, sizeof(val));
 	ent->client->ps.fov = clamp((float) atoi(val), 1.f, 160.f);
 
+	//MOD START
+	ent->client->base_fov = ent->client->ps.fov;
+	//MOD END
+
 	// handedness
 	if (gi.Info_ValueForKey(userinfo, "hand", val, sizeof(val)))
 	{
@@ -3174,14 +3178,31 @@ void SanityThink(edict_t* ent) {
 		ent->client->next_sanity_drain = level.time + gtime_t::from_sec(g_sanity_drain_rate->value);
 	}
 
-	float sanity_pct = (float)ent->client->pers.sanity / (float)g_sanity_max->integer * 100.0f;
+	float sanity_pct = (float)ent->client->pers.sanity / (float)g_sanity_max->integer;
 
-	if (sanity_pct <= g_sanity_scream_threshold->value) {
-		if (level.time > ent->client->next_sanity_scream) {
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("misc/udeath.wav"), 1, ATTN_NORM, 0);
+	if (sanity_pct >0.20f) {
+		ent->client->next_sanity_sound = level.time + 5.0_sec;
+		return;
+	}
 
-			ent->client->next_sanity_scream = level.time + gtime_t::from_sec(g_sanity_scream_freq->value) + random_time(5_sec);
-		}
+	if (level.time > ent->client->next_sanity_sound) {
+			const char* scary_sounds[] = {
+				"misc/udeath.wav",
+				"insane/insane1.wav",
+				"insane/insane2.wav",
+				"insane/pain1.wav",
+				"player/gasp1.wav",
+				"player/gasp2.wav",
+				"misc/windfly.wav",
+				"world/brkglas1.wav"
+			};
+			int num_sounds = 8;
+			int rnd = rand() % num_sounds;
+
+			gi.sound(ent, CHAN_AUTO, gi.soundindex(scary_sounds[rnd]), 1, ATTN_NORM, 0);
+			float delay = g_sanity_scream_freq->value + (float)(rand() %100) / 20.0f;
+			ent->client->next_sanity_sound = level.time + gtime_t::from_sec(delay);
+		
 	}
 }
 
@@ -3203,6 +3224,7 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 	uint32_t   i;
 	client = ent->client;
 	//MOD START
+	SanityThink(ent);
 
 	static bool attack_released = true;
 	if (!(ucmd->buttons & BUTTON_ATTACK)) attack_released = true;
@@ -3289,6 +3311,7 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 
 	const float STAMINA_MAX = 100.0f;
 	const float STAMINA_DRAIN_RATE = 20.0f * FRAME_TIME_S.seconds();
+	const float STAMINA_DRAIN_BREATH = 8.0f * FRAME_TIME_S.seconds();
 	const float STAMINA_REGEN_RATE = 10.0f * FRAME_TIME_S.seconds();
 
 	const float RUN_SPEED = 400.0f;
@@ -3304,14 +3327,21 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 
 	bool holding_sprint_key = (is_moving && current_speed < RUN_THRESHOLD);
 
-	if (holding_sprint_key && !is_crouching && client->pers.stamina > 0.0f) {
+	client->is_holding_breath = false;
+	if (is_crouching) {
+		if (client->pers.stamina > 0.0f) {
+			client->is_holding_breath = true;
+			client->pers.stamina -= STAMINA_DRAIN_BREATH;
+		}
+	}
+
+	else if (holding_sprint_key && !is_crouching && client->pers.stamina > 0.0f) {
 		float scale = RUN_SPEED / current_speed;
 		ucmd->forwardmove = (short)(fwd*scale);
 		ucmd->sidemove = (short)(side*scale);
 
 		client->pers.stamina -= STAMINA_DRAIN_RATE;
-		if (client->pers.stamina < 0.0f)
-			client->pers.stamina = 0.0f;
+		
 	}
 	else {
 		if (current_speed > WALK_SPEED) {
@@ -3326,6 +3356,9 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 				client->pers.stamina = STAMINA_MAX;
 		}
 	}
+
+	if (client->pers.stamina < 0.0f)
+		client->pers.stamina = 0.0f;
 	//MOD END
 	pmove_t	   pm;
 

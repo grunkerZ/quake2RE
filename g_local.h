@@ -3021,7 +3021,7 @@ struct gclient_t
 
 	//MOD START
 	gtime_t next_sanity_drain;
-	gtime_t next_sanity_scream;
+	gtime_t next_sanity_sound;
 	bool emf_active;
 	bool emf_detecting;
 	bool emf_sound_played;
@@ -3030,6 +3030,9 @@ struct gclient_t
 	float lean_angle;
 	bool is_leaning;
 	bool lean_held;
+	bool is_holding_breath;
+	bool is_closing_eyes;
+	float base_fov;
 	//MOD END
 };
 

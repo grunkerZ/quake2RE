@@ -75,7 +75,7 @@ THINK(watcher_active) (edict_t* self) ->void {
 
 			AngleVectors(ent->client->v_angle, forward, nullptr, nullptr);
 
-			if (forward.dot(to_watcher) > WATCHER_VIEW_CONE) {
+			if (forward.dot(to_watcher) > WATCHER_VIEW_CONE && !ent->client->is_closing_eyes) {
 				trace_t tr = gi.trace(ent->s.origin + ent->client->ps.viewoffset, vec3_origin, vec3_origin, self->s.origin, ent, MASK_OPAQUE);
 				
 				if (tr.fraction == 1.0f || tr.ent == self) {

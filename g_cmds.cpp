@@ -1626,6 +1626,14 @@ void Cmd_Lean_f(edict_t* ent) {
 	ent->client->lean_held = (atoi(gi.argv(1)) != 0);
 }
 
+void Cmd_Eyes_f(edict_t* ent) {
+	if (gi.argc() < 2)
+		return;
+
+	int state = atoi(gi.argv(1));
+	ent->client->is_closing_eyes = (state != 0);
+}
+
 //MOD END
 
 /*
@@ -1793,6 +1801,12 @@ void ClientCommand(edict_t *ent)
 	// ZOID
 	else if (Q_strcasecmp(cmd, "switchteam") == 0)
 		Cmd_Switchteam_f(ent);
+	//MOD START
+
+	else if (Q_strcasecmp(cmd, "eyes") == 0)
+		Cmd_Eyes_f(ent);
+
+	//MOD END
 #ifndef KEX_Q2_GAME
 	else // anything that doesn't match a command will be a chat
 		Cmd_Say_f(ent, true);

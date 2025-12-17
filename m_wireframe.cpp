@@ -4,7 +4,7 @@
 #define WIREFRAME_MODEL					"models/monsters/soldier/tris.md2"
 #define WIREFRAME_SANITY_THRESH			0.40f
 #define WIREFRAME_DESPAWN_DIST			1500.0f
-#define WIREFRAME_BLIND_DIST			128.0f
+#define WIREFRAME_BLIND_DIST			256.0f
 #define WIREFRAME_HEAR_DIST				1024.0f
 #define WIREFRAME_DRAIN_RATE			0.1f
 #define WIREFRAME_DRAIN_AMOUNT			2
@@ -53,6 +53,9 @@ static bool Wireframe_IsTargetLoud(edict_t* self, edict_t* target) {
 }
 
 static bool Wireframe_CanSense(edict_t* self, edict_t* targ) {
+	if (targ->client && targ->client->is_holding_breath)
+		return false;
+	
 	float dist = (targ->s.origin - self->s.origin).length();
 
 	if (dist <= WIREFRAME_BLIND_DIST) return visible(self, targ);
@@ -94,6 +97,9 @@ static bool Wireframe_Look(edict_t* self) {
 	for (i = 1; i <= game.maxclients; i++) {
 		ent = &g_edicts[i];
 		if (!ent->inuse || ent->health <= 0 || ent->flags & FL_NOTARGET)
+			continue;
+
+		if (ent->client && ent->client->is_holding_breath)
 			continue;
 
 		float dist = (ent->s.origin - self->s.origin).length();
@@ -238,7 +244,10 @@ DIE(wireframe_die) (edict_t* self, edict_t* inflictor, edict_t* attacker, int da
 
 
 MONSTERINFO_CHECKATTACK(Wireframe_CheckAttack) (edict_t* self) -> bool {
-	if (!self->enemy)
+	if (!self->enemy || !self->enemy->inuse)
+		return false;
+
+	if (self->enemy->client && self->enemy->client->is_holding_breath)
 		return false;
 
 	float dist_to_player = (self->enemy->s.origin - self->s.origin).length();
@@ -312,6 +321,12 @@ THINK(wireframe_dormant) (edict_t* self)->void {
 
 THINK(wireframe_active) (edict_t* self)->void {
 	bool keep_active = false;
+
+	if (self->enemy && !self->enemy->inuse) {
+		self->enemy = NULL;
+		self->movetarget = NULL;
+		self->goalentity = NULL;
+	}
 
 	if (self->spawnflags.has(SPAWNFLAG_WIREFRAME_ALWAYS_ACTIVE)) {
 		keep_active = true;

@@ -2594,7 +2594,7 @@ void SP_misc_sanity_vendor(edict_t* self) {
 
 void SP_misc_hideable(edict_t* ent) {
 	if (!ent->model)
-		ent->model = "models/objects/lockers/tris.md2";
+		ent->model = "models/items/mega_h/tris.md2";
 
 	gi.setmodel(ent, ent->model);
 

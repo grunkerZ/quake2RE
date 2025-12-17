@@ -34,6 +34,9 @@ static bool Snitch_CanHear(edict_t* self, edict_t* target) {
 	if (!target || !target->client)
 		return false;
 
+	if (target->client->is_holding_breath)
+		return false;
+
 	float dist = (target->s.origin - self->s.origin).length();
 
 	if (dist <= SNITCH_HEAR_DIST) {
@@ -325,7 +328,7 @@ THINK(snitch_dormant) (edict_t* self)->void {
 			float dist = (ent->s.origin - self->s.origin).length();
 			float sanity_pct = (float)ent->client->pers.sanity / (float)g_sanity_max->integer;
 
-			if (sanity_pct <= SNITCH_SPAWN_SANITY_PCT) {
+			if (sanity_pct <= SNITCH_SPAWN_SANITY_PCT && dist<1500.0f) {
 				should_wake = true;
 				break;
 			}
