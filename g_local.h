@@ -1994,6 +1994,7 @@ extern cvar_t *ai_movement_disabled;
 
 #define world (&g_edicts[0])
 
+
 uint32_t GetUnicastKey();
 
 // item spawnflags

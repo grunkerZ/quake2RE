@@ -1452,10 +1452,20 @@ TOUCH(trigger_loop_touch) (edict_t* self, edict_t* other, const trace_t& tr, boo
 	float c = cos(rad);
 	float s = sin(rad);
 
-	trace_t floor_trace = gi.traceline(other->s.origin, vec3_t{ other->s.origin[0],other->s.origin[1],other->s.origin[2] - 1024.0f }, other, MASK_SOLID);
+	vec3_t src_start = other->s.origin;
+	vec3_t src_end = src_start;
+	src_end[2] -= 1024.0f;
 
+	trace_t floor_trace = gi.traceline(src_start,src_end, other, MASK_SOLID);
 	float height_above_floor = other->s.origin[2] - floor_trace.endpos[2];
 
+	vec3_t dest_start = dest->s.origin;
+	dest_start[2] += 32.0f;
+	vec3_t dest_end = dest->s.origin;
+	dest_end[2] -= 1024.0f;
+
+	trace_t dest_trace = gi.traceline(dest_start, dest_end, other, MASK_SOLID);
+	
 	vec3_t trigger_center = (self->absmin + self->absmax) * 0.5f;
 	vec3_t old_offset = other->s.origin - trigger_center;
 
@@ -1467,7 +1477,7 @@ TOUCH(trigger_loop_touch) (edict_t* self, edict_t* other, const trace_t& tr, boo
 	new_origin[0] = dest->s.origin[0] + new_offset[0];
 	new_origin[1] = dest->s.origin[1] + new_offset[1];
 
-	new_origin[2] += height_above_floor;
+	new_origin[2] = dest_trace.endpos[2] + height_above_floor;
 
 	gi.unlinkentity(other);
 
@@ -1480,9 +1490,14 @@ TOUCH(trigger_loop_touch) (edict_t* self, edict_t* other, const trace_t& tr, boo
 	other->velocity[1] = old_vel[0] * s + old_vel[1] * c;
 
 	other->s.angles[YAW] += yaw_diff;
+
 	other->client->ps.viewangles[YAW] += yaw_diff;
 
+	other->client->v_angle[YAW] += yaw_diff;
+
 	other->client->ps.pmove.delta_angles[YAW] += yaw_diff;
+
+	other->s.event = EV_OTHER_TELEPORT;
 
 	other->client->ps.pmove.pm_flags |= (PMF_NO_POSITIONAL_PREDICTION | PMF_NO_ANGULAR_PREDICTION);
 

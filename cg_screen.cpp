@@ -1716,6 +1716,8 @@ extern uint64_t cgame_init_time;
 
 void CG_DrawHUD (int32_t isplit, const cg_server_data_t *data, vrect_t hud_vrect, vrect_t hud_safe, int32_t scale, int32_t playernum, const player_state_t *ps)
 {
+
+
     if (cgi.CL_InAutoDemoLoop())
     {
         if (cl_paused->integer) return; // demo is paused, menu is open
