@@ -1564,7 +1564,7 @@ edict_t* FindNearestDetectorTarget(edict_t* ent) {
 		bool is_target = false;
 
 		if (check->item) {
-			if (check->item->id == IT_ITEM_ALMOND_WATER || check->item->id == IT_ITEM_BATTERY) {
+			if (check->item->id == IT_ITEM_ALMOND_WATER || check->item->id == IT_ITEM_BATTERY || check->item->id == IT_ITEM_EMF || check->item->id == IT_ITEM_ALARM_CLOCK) {
 				if (!(check->svflags & SVF_NOCLIENT)) {
 					is_target = true;
 				}
@@ -1613,6 +1613,10 @@ static void Use_Compass(edict_t *ent, gitem_t *inv)
 		ent->client->help_poi_image = gi.imageindex("p_adrenaline");
 	else if (target->item && target->item->id == IT_ITEM_BATTERY)
 		ent->client->help_poi_image = gi.imageindex("a_cells");
+	else if (target->item && target->item->id == IT_ITEM_EMF)
+		ent->client->help_poi_image = gi.imageindex("k_dataspin");
+	else if (target->item && target->item->id == IT_ITEM_ALARM_CLOCK)
+		ent->client->help_poi_image = gi.imageindex("a_grenades");
 	else
 		ent->client->help_poi_image = gi.imageindex("i_help");
 

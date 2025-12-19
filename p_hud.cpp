@@ -659,32 +659,33 @@ Display the current help message
 */
 void Cmd_Help_f(edict_t *ent)
 {
-	// this is for backwards compatability
-	if (deathmatch->integer)
-	{
-		Cmd_Score_f(ent);
-		return;
-	}
+	Cmd_OpenHelpMenu(ent);
+	//// this is for backwards compatability
+	//if (deathmatch->integer)
+	//{
+	//	Cmd_Score_f(ent);
+	//	return;
+	//}
 
-	if (level.intermissiontime)
-		return;
+	//if (level.intermissiontime)
+	//	return;
 
-	ent->client->showinventory = false;
-	ent->client->showscores = false;
+	//ent->client->showinventory = false;
+	//ent->client->showscores = false;
 
-	if (ent->client->showhelp &&
-			(ent->client->pers.game_help1changed == game.help1changed ||
-			ent->client->pers.game_help2changed == game.help2changed))
-	{
-		ent->client->showhelp = false;
-		globals.server_flags &= ~SERVER_FLAG_SLOW_TIME;
-		return;
-	}
+	//if (ent->client->showhelp &&
+	//		(ent->client->pers.game_help1changed == game.help1changed ||
+	//		ent->client->pers.game_help2changed == game.help2changed))
+	//{
+	//	ent->client->showhelp = false;
+	//	globals.server_flags &= ~SERVER_FLAG_SLOW_TIME;
+	//	return;
+	//}
 
-	ent->client->showhelp = true;
-	ent->client->pers.helpchanged = 0;
-	globals.server_flags |= SERVER_FLAG_SLOW_TIME;
-	HelpComputer(ent);
+	//ent->client->showhelp = true;
+	//ent->client->pers.helpchanged = 0;
+	//globals.server_flags |= SERVER_FLAG_SLOW_TIME;
+	//HelpComputer(ent);
 }
 
 //=======================================================================
@@ -727,6 +728,8 @@ struct powerup_info_t
 
 void DrawBackroomsHUD(edict_t* ent) {
 	if (ent->health <= 0 || ent->deadflag) return;
+
+	if (ent->client->menu) return;
 
 	std::string layout;
 

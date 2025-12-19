@@ -3034,6 +3034,7 @@ struct gclient_t
 	bool is_holding_breath;
 	bool is_closing_eyes;
 	float base_fov;
+	gtime_t exhaustion_time;
 	//MOD END
 };
 
@@ -3682,4 +3683,5 @@ extern cvar_t* g_sanity_max;
 extern cvar_t* g_sanity_drain_rate;
 extern cvar_t* g_sanity_scream_threshold;
 extern cvar_t* g_sanity_scream_freq;
+void Cmd_OpenHelpMenu(edict_t* ent);
 //MOD END

@@ -3224,6 +3224,27 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 	uint32_t   i;
 	client = ent->client;
 	//MOD START
+	static gtime_t nextinput = 0.0_sec;
+	ent->client->menutime = 0_sec;
+
+	if (ent->client->menu) {
+		if (level.time>nextinput) {
+			if (ucmd->forwardmove > 0) {
+				PMenu_Prev(ent);
+				nextinput = level.time + 0.2_sec;
+			}
+			else if (ucmd->forwardmove < 0) {
+				PMenu_Next(ent);
+				nextinput = level.time + 0.2_sec;
+			}
+		}
+
+		ucmd->forwardmove = 0;
+		ucmd->sidemove = 0;
+
+		return;
+	}
+
 	SanityThink(ent);
 
 	static bool attack_released = true;
@@ -3327,6 +3348,8 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 
 	bool holding_sprint_key = (is_moving && current_speed < RUN_THRESHOLD);
 
+	bool is_exhausted = (ent->client->exhaustion_time > level.time);
+
 	client->is_holding_breath = false;
 	if (is_crouching) {
 		if (client->pers.stamina > 0.0f) {
@@ -3335,12 +3358,17 @@ void ClientThink(edict_t *ent, usercmd_t *ucmd)
 		}
 	}
 
-	else if (holding_sprint_key && !is_crouching && client->pers.stamina > 0.0f) {
+	else if (holding_sprint_key && !is_exhausted && !is_crouching && client->pers.stamina > 0.0f) {
 		float scale = RUN_SPEED / current_speed;
 		ucmd->forwardmove = (short)(fwd*scale);
 		ucmd->sidemove = (short)(side*scale);
 
 		client->pers.stamina -= STAMINA_DRAIN_RATE;
+
+		if (ent->client->pers.stamina <= 0) {
+			ent->client->exhaustion_time = level.time + 5.0_sec;
+			gi.sound(ent, CHAN_VOICE, gi.soundindex("player/gasp1.wav"), 1, ATTN_NORM, 0);
+		}
 		
 	}
 	else {
