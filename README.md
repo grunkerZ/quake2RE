@@ -1,5 +1,12 @@
 # quake2RE
 This is a backrooms style mod for quake 2 rerelease.
+
+Installation:
+Unzip folder into Quake 2 Rerelease Directory
+Open Folder
+Run Quake 2 Shortcut
+
+
 This includes:
 - A sanity bar that you must manage
 - 5 world events
@@ -32,5 +39,5 @@ EMF Reader - notifies you when monsters like the snitch or the mannequin are nea
 Sprint
 Hide
 Sneak
-Throw
+Lean
 Close Eyes
